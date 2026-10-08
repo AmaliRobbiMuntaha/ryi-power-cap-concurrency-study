@@ -1,0 +1,10 @@
+{
+  "run_id": "72931c87-26e1-4174-9f8c-62479eff4b26",
+  "run_status": "valid",
+  "duration_s": 9.64358,
+  "any_confirmed_fault": true,
+  "fault_classes": ["atomicity_violation"],
+  "mean_package_power_w": 10.542,
+  "peak_temperature_c": 76.10,
+  "context_switch_total": 784
+}

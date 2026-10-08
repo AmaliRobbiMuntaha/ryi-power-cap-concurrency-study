@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this code or dataset, please cite the paper below."
+title: "An Empirical Study of Scheduling Perturbation, Concurrency Faults, and Power-Cap Conditions on a 15 W-Class Client Device"
+authors:
+  - family-names: "Amali"
+    given-names: "Robbi Muntaha"
+  - family-names: "Nabilah"
+    given-names: "Sarah"
+  - family-names: "Afafa"
+    given-names: "Aura Jannati"
+  - family-names: "Supriyanto"
+    given-names: ""
+repository-code: "https://github.com/AmaliRobbiMuntaha/ryi-power-cap-concurrency-study"
+license: MIT
+version: 1.0.0
+date-released: "2026-10-08"
+DOI: 10.5281/zenodo.23234432

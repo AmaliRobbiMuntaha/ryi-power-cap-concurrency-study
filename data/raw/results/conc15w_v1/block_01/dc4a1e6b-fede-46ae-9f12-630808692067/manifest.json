@@ -1,0 +1,23 @@
+{
+  "schema_name": "conc15w.run_manifest",
+  "schema_version": "1.0.0",
+  "study_id": "conc15w_v1",
+  "run_id": "dc4a1e6b-fede-46ae-9f12-630808692067",
+  "block_id": "block_01",
+  "replicate_index": 10,
+  "planned_start_utc": "2026-09-14T09:44:17Z",
+  "device": {
+    "cpu_model": "AMD Ryzen 5 3500U with Radeon Vega Mobile Gfx",
+    "power_limit_w": 25
+  },
+  "software": {
+    "kernel_release": "7.2.4-arch1-2",
+    "workload_id": "cpu_melter_bug"
+  },
+  "experimental_factors": {
+    "thread_count": 8,
+    "scheduler_policy": "baseline",
+    "perturbation_family": "randomized_yield",
+    "schedule_seed": 19317
+  }
+}
