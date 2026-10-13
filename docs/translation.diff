@@ -1,0 +1,351 @@
+--- ../L-backup/L-first-version/run_schema_experiment.sh	2026-10-05 09:24:50.271232500 +0700
++++ scripts/run_schema_experiment.sh	2026-10-08 21:05:34.550273386 +0700
+@@ -2,7 +2,7 @@
+ set -uo pipefail
+ 
+ if [ "$EUID" -ne 0 ]; then
+-    echo "Jalankan skrip ini dengan sudo!"
++    echo "Run this script with sudo!"
+     exit 1
+ fi
+ 
+@@ -12,7 +12,7 @@
+ }
+ 
+ BAT_STATUS=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -n 1)
+-# Cek status baterai (Pastikan tidak sedang aktif "Charging")
++# Check the battery status (make sure it is not currently active "Charging")
+ if [ -n "$BAT_STATUS" ]; then
+     if [ "$BAT_STATUS" = "Discharging" ]; then
+         fail "Charger plug-in needed! Device must run on AC power to maintain stable TDP profiles."
+@@ -21,16 +21,14 @@
+     fi
+ fi
+ 
+-# ==========================================
+-# IDENTITAS STUDI (Bagian 2 Desain Skema)
+-# ==========================================
++## STUDY IDENTITY (Section 2: Schematic Design)
+ STUDY_ID="conc15w_v1"
+ BLOCK_ID="block_01"
+ BASE_DIR="./results/$STUDY_ID/$BLOCK_ID"
+ 
+ ITERATIONS=50
+ TDP_LEVELS=(15000 25000 45000)
+-MODES=("pct" "baseline") # seharusnya pct diganti randomized_yield
++MODES=("pct" "baseline")
+ WRAPPER="./libpct.so"
+ BENCHMARK_NAME="cpu_melter_bug"
+ TARGET_CMD="./cpu_melter_bug"
+@@ -42,20 +40,16 @@
+ HW_CPU=$(lscpu | grep 'Model name' | awk -F: '{print $2}' | xargs)
+ HW_KERNEL=$(uname -r)
+ 
+-# ==========================================
+-# SAFETY TRAP (Mencegah Zombie Process saat Ctrl+C)
+-# ==========================================
++## SAFETY TRAP (Prevent Zombie Process when Ctrl+C)
+ cleanup_on_exit() {
+-    echo -e "\n[!] Eksperimen dibatalkan oleh pengguna (Ctrl+C). Membersihkan background process..."
++    echo -e "\n[!] the experiment was canceled by the user (ctrl+c). clearing background processes..."
+     killall -9 "$BENCHMARK_NAME" 2>/dev/null
+     kill -INT "$TURBO_PID" 2>/dev/null
+     exit 1
+ }
+ trap cleanup_on_exit INT TERM
+ 
+-# ==========================================
+-# LOOP EKSPERIMEN UTAMA
+-# ==========================================
++## MAIN EXPERIMENT LOOP
+ for TDP in "${TDP_LEVELS[@]}"; do
+     ryzenadj --stapm-limit="$TDP" --fast-limit="$TDP" --slow-limit="$TDP" >/dev/null
+     TDP_LABEL="${TDP}mW"
+@@ -68,12 +62,10 @@
+ 
+             SEED=$RANDOM
+             echo "======================================================"
+-            echo "[*] Memulai RUN: $RUN_ID"
+-            echo "[*] Konfigurasi: TDP=$TDP_LABEL, Sched=$MODE, Seed=$SEED"
++            echo "[*] Starting RUN: $RUN_ID"
++            echo "[*] Configuration: TDP=$TDP_LABEL, Sched=$MODE, Seed=$SEED"
+ 
+-            # ---------------------------------------------------------
+-            # BAGIAN 3: IMMUTABLE RUN MANIFEST (manifest.json)
+-            # ---------------------------------------------------------
++            ## Section 3: IMMUTABLE RUN MANIFEST (manifest.json)
+             cat <<EOF >"$RUN_DIR/manifest.json"
+ {
+   "schema_name": "conc15w.run_manifest",
+@@ -101,9 +93,7 @@
+ EOF
+             sha256sum "$RUN_DIR/manifest.json" >"$RUN_DIR/checksums.sha256"
+ 
+-            # ---------------------------------------------------------
+-            # PERSIAPAN TELEMETRI & INSTRUMENTASI
+-            # ---------------------------------------------------------
++            ## TELEMETRY & INSTRUMENTATION PREPARATION
+             START_MONO_NS=$(get_mono_ns)
+ 
+             turbostat -i 0.25 -o "$RUN_DIR/artifacts/turbostat_raw.csv" >/dev/null 2>&1 &
+@@ -113,10 +103,8 @@
+             export PCT_SEED=$SEED
+             if [ "$MODE" = "pct" ]; then export LD_PRELOAD="$WRAPPER"; else unset LD_PRELOAD; fi
+ 
+-            # ---------------------------------------------------------
+-            # EKSEKUSI PRODUKSI
+-            # ---------------------------------------------------------
+-            # Timeout 15s karena program berjalan 10 detik
++            ## PRODUCTION EXECUTION
++            # 15-second timeout because the program ran for 10 seconds
+             timeout 15s perf stat -x, -e context-switches,cpu-cycles -o "$RUN_DIR/artifacts/perf_raw.csv" \
+                 bash -c "$TARGET_CMD > $RUN_DIR/artifacts/application_trace.log 2>&1"
+ 
+@@ -128,12 +116,10 @@
+             kill -INT "$TURBO_PID" 2>/dev/null
+             wait "$TURBO_PID" 2>/dev/null
+ 
+-            # Ganti sysbench menjadi target yang benar
++            # Change sysbench to the correct target
+             killall -9 "$BENCHMARK_NAME" 2>/dev/null
+ 
+-            # ---------------------------------------------------------
+-            # BAGIAN 7: FAULT TABLE (KOREKSI KLASIFIKASI BUG)
+-            # ---------------------------------------------------------
++            ## SECTION 7: FAULT TABLE (BUG CLASSIFICATION CORRECTIONS)
+             FAULT_CLASS="none"
+             STATUS="valid"
+             ANY_FAULT=0
+@@ -143,7 +129,7 @@
+                 FAULT_CLASS="deadlock_or_starvation"
+                 echo -e "    \e[31m-> [ DEADLOCK ]\e[0m (${DURATION_S}s)"
+             elif [ "$EXIT_CODE" -eq 134 ]; then
+-                # INI ADALAH TAMBAHAN UNTUK MENANGKAP HASIL BUG DARI KODE C
++                # THIS IS AN ADDITION TO CAPTURE THE RESULTS OF A BUG IN THE C CODE
+                 ANY_FAULT=1
+                 FAULT_CLASS="atomicity_violation"
+                 echo -e "    \e[31m-> [ BUG (Race Condition) ]\e[0m (${DURATION_S}s)"
+@@ -154,18 +140,16 @@
+             else
+                 ANY_FAULT=0
+                 FAULT_CLASS="none"
+-                echo -e "    \e[32m-> [ AMAN ]\e[0m (${DURATION_S}s)"
++                echo -e "    \e[32m-> [ OK ]\e[0m (${DURATION_S}s)"
+             fi
+ 
+-            # Tulis ke faults.csv
++            # Write to faults.csv
+             echo "run_id,fault_class,status,t_first_candidate_ns,detector" >"$RUN_DIR/faults.csv"
+             if [ $ANY_FAULT -eq 1 ]; then
+                 echo "$RUN_ID,$FAULT_CLASS,confirmed,$END_MONO_NS,exit_monitor" >>"$RUN_DIR/faults.csv"
+             fi
+ 
+-            # ---------------------------------------------------------
+-            # BAGIAN 8: RUN SUMMARY TABLE & METRIKS
+-            # ---------------------------------------------------------
++            # SECTION 8: RUN SUMMARY TABLE & METRICS
+             CSWITCH=$(grep "context-switches" "$RUN_DIR/artifacts/perf_raw.csv" 2>/dev/null | awk -F, '{print $1}')
+             CSWITCH=${CSWITCH:-0}
+ 
+@@ -186,20 +170,16 @@
+ }
+ EOF
+ 
+-            # ---------------------------------------------------------
+-            # KONSOLIDASI MASTER TABEL
+-            # ---------------------------------------------------------
++            ## MASTER TABLE CONSOLIDATION
+             if [ ! -f "$BASE_DIR/master_run_summary.csv" ]; then
+                 echo "benchmark,run_id,study_id,block_id,replicate,tdp_w,sched_mode,seed,duration_s,any_fault,fault_class,mean_watt,peak_temp_c,cswitches" >"$BASE_DIR/master_run_summary.csv"
+             fi
+             TDP_W=$(awk "BEGIN {print $TDP / 1000}")
+             echo "$BENCHMARK_NAME,$RUN_ID,$STUDY_ID,$BLOCK_ID,$i,$TDP_W,$MODE,$SEED,$DURATION_S,$ANY_FAULT,$FAULT_CLASS,$AVG_WATT,$AVG_TMP,$CSWITCH" >>"$BASE_DIR/master_run_summary.csv"
+ 
+-            # ---------------------------------------------------------
+-            # COOLDOWN
+-            # ---------------------------------------------------------
++            ## COOLDOWN
+             TARGET_TEMP=55.0
+-            echo -n "    [*] Cooldown ke < ${TARGET_TEMP}°C... "
++            echo -n "    [*] Cooldown to < ${TARGET_TEMP}°C... "
+             while true; do
+                 CUR_TMP=$(sensors | awk '/Package id 0:|Tctl:/{gsub(/\+|°C/,"",$2); print $2; exit}')
+                 if [ -z "$CUR_TMP" ]; then
+@@ -209,12 +189,12 @@
+                 if [ $(echo "$CUR_TMP <= $TARGET_TEMP" | bc -l) -eq 1 ]; then break; fi
+                 sleep 2
+             done
+-            echo "Selesai ($CUR_TMP°C)."
++            echo "Done ($CUR_TMP°C)."
+ 
+         done
+     done
+ done
+ 
+ echo "======================================================"
+-echo "[+] EKSPERIMEN BLOK 1 SELESAI"
+-echo "[+] Hasil tersimpan di: $BASE_DIR"
++echo "[+] BLOCK 1 EXPERIMENT COMPLETED"
++echo "[+] Results saved to: $BASE_DIR"
+--- ../L-backup/L-first-version/cpu_melter_bug.c	2026-09-14 13:11:00.816756000 +0700
++++ scripts/cpu_melter_bug.c	2026-10-08 21:05:34.523158444 +0700
+@@ -10,38 +10,37 @@
+ pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+ long long shared_balance = 0;
+ 
+-// Mutex terpisah agar perhitungan target hasil tidak terkena bug
++// Separate mutex so that the target result calculation isn't affected by the
++// bug
+ pthread_mutex_t expected_lock = PTHREAD_MUTEX_INITIALIZER;
+ long long expected_updates = 0;
+ 
+-// Variabel blackhole agar compiler (GCC) tidak menghapus fungsi matematika
++// The “blackhole” variable prevents the compiler (GCC) from removing
++// mathematical functions
+ volatile double blackhole = 0;
+ 
+ void *worker(void *arg) {
+   time_t start = time(NULL);
+   long long local_updates = 0;
+ 
+-  // Loop terus-menerus selama TEPAT 10 Detik
++  // Loop continuously for exactly 10 seconds
+   while (time(NULL) - start < 10) {
+ 
+-    // =========================================================
+-    // 1. THERMAL BURN (Pemaksa Daya 15W / 80 Celcius)
+-    // Matematika berat ini menjamin CPU bekerja 100% tanpa henti
+-    // =========================================================
++    // 1. THERMAL BURN (15W Power Limit / 80 Celsius)
++    // This intensive workload ensures the CPU runs at 100% capacity nonstop
+     double x = 1.5;
+     for (int i = 0; i < 500000; i++) {
+       x = sin(x) * cos(x) + 1.0001;
+     }
+     blackhole = x;
+ 
+-    // =========================================================
+-    // 2. FASE KRITIS (Bug Race Condition / Atomicity)
+-    // =========================================================
++    // 2. CRITICAL PHASE (Race Condition / Atomicity)
+     pthread_mutex_lock(&lock);
+     long long temp = shared_balance;
+     pthread_mutex_unlock(&lock);
+ 
+-    // Jeda sangat tipis. Di sinilah PCT akan mengacak jadwal thread!
++    // The delay is very short. This is where the PCT will randomize the thread
++    // schedule!
+     for (volatile int k = 0; k < 100; k++)
+       ;
+ 
+@@ -52,7 +51,7 @@
+     local_updates++;
+   }
+ 
+-  // Catat jumlah pembaruan yang SEHARUSNYA terjadi
++  // Record the number of updates that should have occurred
+   pthread_mutex_lock(&expected_lock);
+   expected_updates += local_updates;
+   pthread_mutex_unlock(&expected_lock);
+@@ -62,7 +61,8 @@
+ 
+ int main() {
+   pthread_t t[NUM_THREADS];
+-  printf("Memulai Thermal Burner + Bug Simulator (Durasi 10 Detik)...\n");
++  printf("Starting the Thermal Burner + Bug Simulator (Duration: 10 "
++         "Seconds)...\n");
+ 
+   for (int i = 0; i < NUM_THREADS; i++) {
+     pthread_create(&t[i], NULL, worker, NULL);
+@@ -72,15 +72,15 @@
+   }
+ 
+   long long expected_balance = expected_updates * 10;
+-  printf("Hasil Akhir: %lld | Seharusnya: %lld\n", shared_balance,
++  printf("Final Results: %lld | It should be: %lld\n", shared_balance,
+          expected_balance);
+ 
+-  // ORACLE: Klasifikasi Bug
++  // ORACLE: Bug Classification
+   if (shared_balance != expected_balance) {
+-    printf(">>> BUG TERDETEKSI! <<<\n");
+-    return 134; // Mengirim sinyal 134 ke Bash Script
++    printf(">>> BUG DETECTED! <<<\n");
++    return 134; // Send signal 134 to the Bash script
+   }
+ 
+-  printf(">>> AMAN <<<\n");
++  printf(">>> OK <<<\n");
+   return 0;
+ }
+--- ../L-backup/L-first-version/pct_wrapper.c	2026-09-11 22:15:57.550576400 +0700
++++ scripts/pct_wrapper.c	2026-10-08 20:30:11.084475105 +0700
+@@ -16,7 +16,7 @@
+ 
+ int pthread_mutex_lock(pthread_mutex_t *mutex) {
+   // Naive Random Scheduler (Thomson et al., 2014)
+-  // Probabilitas 10% untuk melepaskan sisa waktu CPU (Context Switch paksa)
++  // 10% probability of releasing the remaining CPU time (forced context switch)
+   if (rand() % 100 < 10) {
+     sched_yield();
+   }
+--- ../L-backup/L-first-version/preparation.sh	2026-09-15 17:22:08.197436800 +0700
++++ scripts/preparation.sh	2026-10-08 20:33:00.442211404 +0700
+@@ -8,9 +8,9 @@
+ sudo systemctl stop cronie
+ sudo systemctl stop systemd-timesyncd
+ sudo systemctl stop power-profiles-daemon
+-sudo systemctl stop systemd-timesyncd.service # Mencegah sinkronisasi jam di background
+-sudo systemctl stop udisks2.service           # Mencegah disk polling/automount daemon
+-sudo systemctl stop ananicy-cpp.service       # WAJIB MATI! Ananicy mengubah 'nice' level proses secara otomatis dan akan merusak kontrol scheduler PCT kamu.
++sudo systemctl stop systemd-timesyncd.service # Prevents clock synchronization in the background
++sudo systemctl stop udisks2.service           # Prevents the disk polling/automount daemon
++sudo systemctl stop ananicy-cpp.service       # MUST BE STOPPED! Ananicy automatically changes the process ‘nice’ level and will disrupt your PCT scheduler control.
+ 
+ sudo systemctl stop archlinux-keyring-wkd-sync.timer
+ sudo systemctl stop man-db.timer
+@@ -19,7 +19,3 @@
+ 
+ sudo cpupower frequency-set -g performance
+ cpupower frequency-info
+-
+-CPU_GOV=/sys/devices/system/cpu/cpu*/cpufreq
+-echo "performance" >$CPU_GOV
+-cat $CPU_GOV
+--- ../L-backup/L-first-version/build.sh	2026-09-14 11:53:30.198211500 +0700
++++ scripts/build.sh	2026-10-12 14:49:56.473055432 +0700
+@@ -1,10 +1,7 @@
+ #!/bin/bash
+-set -euo pipefail
+ 
+-mkdir -p bin_svcomp
++set -euo pipefail
++cd "$(dirname "$0")"
+ gcc -O3 -pthread cpu_melter_bug.c -o cpu_melter_bug -lm
+-
+-echo ">> Compiling libpct.so (PCT Scheduler)"
+ gcc -shared -fPIC -O2 -o libpct.so pct_wrapper.c -ldl
+-
+-echo ">> Selesai! File binary tersimpan di folder bin_svcomp/"
++echo ">> Done"
+--- ../L-backup/L-first-version/done.sh	2026-09-11 18:01:29.587176400 +0700
++++ scripts/restore.sh	2026-10-11 15:04:08.676069201 +0700
+@@ -8,14 +8,14 @@
+ sudo systemctl start cronie
+ sudo systemctl start systemd-timesyncd
+ sudo systemctl start power-profiles-daemon
+-sudo systemctl start systemd-timesyncd.service # Mencegah sinkronisasi jam di background
+-sudo systemctl start udisks2.service           # Mencegah disk polling/automount daemon
+-sudo systemctl start ananicy-cpp.service       # WAJIB MATI! Ananicy mengubah 'nice' level proses secara otomatis dan akan merusak kontrol scheduler PCT kamu.
++sudo systemctl start systemd-timesyncd.service
++sudo systemctl start udisks2.service
++sudo systemctl start ananicy-cpp.service
+ 
+ sudo systemctl start archlinux-keyring-wkd-sync.timer
+ sudo systemctl start man-db.timer
+ sudo systemctl start shadow.timer
+ sudo systemctl start systemd-tmpfiles-clean.timer
+ 
+-sudo cpupower frequency-set -g performance
++sudo cpupower frequency-set -g schedutil
+ cpupower frequency-info

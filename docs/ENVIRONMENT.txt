@@ -1,0 +1,63 @@
+# docs/ENVIRONMENT.txt
+# Environment of the experiment (block_01, collected 2026-09-14, 08:56-10:43 UTC)
+
+## Hardware / OS (from dataset and turbostat header of the raw logs)
+CPU:               AMD Ryzen 5 3500U with Radeon Vega Mobile Gfx (family 0x17, model 24, stepping 1)
+Microcode:         0x8108109
+Threads:           8
+Kernel release:    7.2.4-arch1-2
+Distribution:      Arch Linux (rolling)
+cpufreq driver:    acpi-cpufreq
+cpufreq governor:  performance (set by scripts/preparation.sh)
+cpufreq boost:     1 (enabled)
+turbostat:         package 7.2.4-1 (installed 2026-09-09); program reports "2026.04.21" in raw logs
+cpupower:          7.2.4-1 (installed 2026-09-09)
+
+## Toolchain
+gcc / gcc-libs:    16.2.1+r23+gd564253eb6c8-1   (installed 2026-08-16)
+gcc banner:        gcc (GCC) 16.2.1 20260810    (`gcc --version`)
+glibc:             2.44+r24+g16be1518495f-1     (installed 2026-08-16)
+perf:              7.2.4-1                      (installed 2026-09-09)
+ryzenadj:          ryzenadj-git 0.19.0.r1.g5775fc3-1 (AUR; installed 2026-09-02)
+lm_sensors:        1:3.6.2-1                    (installed 2025-07-04)
+Original binaries: built 2026-09-14 15:55:58 +0700 (08:55:58 UTC) with GCC 16.2.1 20260810 (ELF .comment)
+
+## Build
+scripts/build.sh:
+  gcc -O3 -pthread cpu_melter_bug.c -o cpu_melter_bug -lm
+  gcc -shared -fPIC -O2 -o libpct.so pct_wrapper.c -ldl
+
+## Analysis environment (current system)
+R: 4.6.1; packages: emmeans 2.0.4, DescTools 0.99.60, dplyr 1.2.1
+Python: 3.14.7 (analysis/extract_telemetry.py, standard library only)
+
+## Rebuild
+Rebuilt on: 2026-10-12
+gcc (GCC) 16.2.1 20260810
+
+## Binary checksums (SHA-256)
+
+### ORIGINAL (used for data collection)
+
+cf7badbec356b230e8c31e18b00eee00a09e4e8b475b3003abb7624c33908fa7  run_schema_experiment.sh
+4881e755c2ba199398d31fb541970e3c2f5bcef4beb1d1fee3d0561570e3996f  cpu_melter_bug.c
+a983eb4e42678c68a82e94f7187e8bfdd85f2d5224000542e467f9e37bd37c66  pct_wrapper.c
+54df8d7f58cc2796774cd93330723ad8f60274fd0a5b521d5c350c268696a280  preparation.sh
+54569127913afceadf7495255d5189b1ba99850165944116de09f01dc418f138  done.sh
+4b4a832b4d42ec72ce365b060185c194c3432863f6305e99841065386fa11572  cpu_melter_bug
+56b876887c53ea5d78a0da6623bb00677fdbe20c452585e472827dba9dd29ad3  libpct.so
+f2dfdea94e130d8d5ebcb2c37fd97f9e30b04d5fe9e11808ab550cc686c47273  build.sh
+
+### REBUILT 2026-10-12
+
+Please note that the SHA-256 hashes below belong to the REBUILT versions of the
+files (built 2026-10-12) with gcc (GCC) 16.2.1 20260810, not the original binaries
+used during data collection on 2026-09-14. The original binaries’ hashes are listed above. libpct.so is byte-identical to its rebuild; cpu_melter_bug differs because its console strings were translated. Compiler version and flags affect the hash. Compiling the original cpu_melter_bug.c with the build.sh flags reproduces the original hash (4b4a832b4d42ec72ce365b060185c194c3432863f6305e99841065386fa11572).
+
+7c9475be8c8bfb94bfe373a1ae5005df3efa62afdbc21082d40f600aebc2acfe  scripts/cpu_melter_bug
+56b876887c53ea5d78a0da6623bb00677fdbe20c452585e472827dba9dd29ad3  scripts/libpct.so
+
+## Source note
+The console strings in cpu_melter_bug.c were translated from Indonesian to English
+after data collection (see CHANGELOG.md); raw application_trace.log files are in
+Indonesian. The translation does not alter logic (verified by docs/translation.diff).

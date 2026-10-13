@@ -1,0 +1,10 @@
+{
+  "run_id": "bf4a51ba-0504-4940-b0ec-cf16107db53a",
+  "run_status": "valid",
+  "duration_s": 9.64578,
+  "any_confirmed_fault": false,
+  "fault_classes": ["none"],
+  "mean_package_power_w": 18.511,
+  "peak_temperature_c": 100.20,
+  "context_switch_total": 789
+}

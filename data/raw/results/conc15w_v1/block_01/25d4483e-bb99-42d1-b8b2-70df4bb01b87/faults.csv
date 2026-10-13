@@ -1,0 +1,2 @@
+run_id,fault_class,status,t_first_candidate_ns,detector
+25d4483e-bb99-42d1-b8b2-70df4bb01b87,atomicity_violation,confirmed,1789379403017922245,exit_monitor
